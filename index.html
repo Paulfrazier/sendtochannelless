@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Send to channel… less — when to leave the "also send" box unchecked</title>
+  <style>
+    :root {
+      --slack-purple: #4A154B;
+      --slack-purple-light: #611f64;
+      --here-yellow: #ECB22E;
+      --here-yellow-dark: #c8951f;
+      --green: #2BAC76;
+      --red: #d63b3b;
+      --bg: #fafafa;
+      --card: #ffffff;
+      --text: #1d1c1d;
+      --muted: #696969;
+      --border: #e6e6e6;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 80px;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin: 0 0 8px;
+      color: var(--slack-purple);
+      letter-spacing: -0.01em;
+    }
+
+    .thesis {
+      font-size: 18px;
+      color: var(--muted);
+      margin: 0 0 32px;
+    }
+
+    h2 {
+      font-size: 20px;
+      margin: 40px 0 16px;
+      color: var(--slack-purple);
+    }
+
+    code {
+      background: #f1f1f1;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+    }
+
+    .explainer {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 540px) {
+      .explainer { grid-template-columns: 1fr; }
+    }
+
+    .def {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .def h3 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+    .def.also h3 { color: var(--here-yellow-dark); }
+    .def.thread h3 { color: var(--slack-purple); }
+    .def p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .trap {
+      background: #fff8e1;
+      border: 1px solid #f0d77a;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 14px;
+    }
+    .trap strong { color: var(--here-yellow-dark); }
+
+    .quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 40px 0 12px;
+      gap: 12px;
+    }
+    .quiz-header h2 { margin: 0; }
+    .progress {
+      font-size: 13px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .progress-bar > div {
+      height: 100%;
+      background: var(--slack-purple);
+      transition: width 0.3s;
+    }
+
+    .scenario {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 22px 20px;
+    }
+    .scenario .q {
+      font-size: 17px;
+      margin: 0 0 18px;
+      line-height: 1.45;
+    }
+
+    .choices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .choices button {
+      flex: 1 1 auto;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.05s, background 0.15s, border-color 0.15s;
+    }
+    .choices button:hover:not(:disabled) {
+      border-color: var(--slack-purple);
+    }
+    .choices button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+    .choices button[data-choice="also"] { color: var(--here-yellow-dark); }
+    .choices button[data-choice="thread"] { color: var(--slack-purple); }
+    .choices button[data-choice="new"] { color: var(--muted); }
+
+    .choices button.correct {
+      background: var(--green);
+      color: white !important;
+      border-color: var(--green);
+    }
+    .choices button.wrong {
+      background: var(--red);
+      color: white !important;
+      border-color: var(--red);
+    }
+    .choices button.also-correct {
+      border-color: var(--green);
+      background: #eafaf2;
+      color: var(--green) !important;
+    }
+    .choices button:disabled {
+      cursor: not-allowed;
+      opacity: 0.85;
+    }
+
+    .feedback {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      display: none;
+    }
+    .feedback.show { display: block; }
+    .feedback.right {
+      background: #eafaf2;
+      border-left: 3px solid var(--green);
+    }
+    .feedback.wrong {
+      background: #fdecec;
+      border-left: 3px solid var(--red);
+    }
+    .feedback .verdict {
+      font-weight: 600;
+      margin-right: 4px;
+    }
+
+    .nav {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 14px;
+    }
+    .nav button {
+      padding: 10px 22px;
+      background: var(--slack-purple);
+      color: white;
+      border: 0;
+      border-radius: 6px;
+      font-size: 15px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .nav button:hover { background: var(--slack-purple-light); }
+
+    .summary {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 28px 22px;
+      text-align: center;
+    }
+    .summary h3 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      color: var(--slack-purple);
+    }
+    .summary .final-score {
+      font-size: 18px;
+      color: var(--text);
+      margin: 0 0 12px;
+    }
+    .summary .breakdown {
+      font-size: 14px;
+      color: var(--muted);
+      margin: 0 0 22px;
+    }
+    .summary button {
+      padding: 10px 22px;
+      background: var(--slack-purple);
+      color: white;
+      border: 0;
+      border-radius: 6px;
+      font-size: 15px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .summary button:hover { background: var(--slack-purple-light); }
+
+    .submit-cta {
+      margin-top: 14px;
+      padding: 14px 16px;
+      background: #f5f0f6;
+      border: 1px dashed #c9b3ce;
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .submit-cta a {
+      color: var(--slack-purple);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .submit-cta a:hover { text-decoration: underline; }
+
+    .takeaways ul {
+      padding-left: 20px;
+      color: var(--text);
+    }
+    .takeaways li { margin-bottom: 8px; }
+
+    footer {
+      margin-top: 48px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+    }
+    footer a { color: var(--muted); }
+    footer .fairpoint {
+      margin-bottom: 6px;
+    }
+    footer .fairpoint a {
+      color: var(--slack-purple);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    footer .fairpoint a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Send to channel… less</h1>
+    <p class="thesis">When you reply in a thread, Slack offers an "Also send to <code>#channel</code>" checkbox. It feels helpful. It usually isn't. Here's when to leave it unchecked.</p>
+
+    <h2>The 30-second explainer</h2>
+    <div class="explainer">
+      <div class="def thread">
+        <h3>Reply in thread only</h3>
+        <p>Your reply stays in the thread. People following the thread are notified; the channel is left alone.</p>
+      </div>
+      <div class="def also">
+        <h3>"Also send to channel" ✓</h3>
+        <p>Your reply posts in the thread <em>and</em> as a fresh message in the channel — pinging everyone, twice.</p>
+      </div>
+    </div>
+    <div class="trap">
+      <strong>The trap:</strong> Checking the box feels considerate — you're making sure people see your reply. But it doubles the noise for everyone, and worse, it tells the channel "the conversation has moved back here" when it hasn't. The thread is still the source of truth.
+    </div>
+
+    <div class="quiz-header">
+      <h2>Quiz: should you check the box?</h2>
+      <div class="progress" id="progress">—</div>
+    </div>
+    <div class="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
+
+    <div id="quiz"></div>
+
+    <div class="submit-cta">
+      Got a good scenario? <a href="https://github.com/Paulfrazier/sendtochannelless/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Submit one as a PR →</a>
+    </div>
+
+    <h2>Takeaways</h2>
+    <div class="takeaways">
+      <ul>
+        <li>The thread already notifies the people who care — they're following the thread.</li>
+        <li>If your reply is <em>the conclusion of the conversation</em> (the decision, the resolution, the answer the channel was waiting on), that's when "also send" earns its keep.</li>
+        <li>If you want to also-send because the topic shifted, the honest move is a fresh top-level message — not an echo.</li>
+      </ul>
+    </div>
+
+    <footer>
+      <div class="fairpoint">More from <a href="https://fairpoint.website" target="_blank" rel="noopener">Fairpoint →</a></div>
+      A tiny educational app. <a href="https://github.com/Paulfrazier/sendtochannelless" target="_blank" rel="noopener">Source on GitHub</a>.
+    </footer>
+  </main>
+
+  <script>
+    const SCENARIOS = [
+      // ─── thread: most thread replies should stay in the thread ───
+      {
+        q: "Mid-thread debugging a customer bug, you've found the cause. You reply: \"oh, it's the timezone parser — I'll patch it.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. The people debugging are in the thread; they need this. The channel doesn't need an in-flight \"I think it's this\" broadcast back.",
+          also: "Now the whole channel reads a debug update with no context. Save the broadcast for the actual resolution.",
+          new: "It's a mid-conversation update inside an existing thread, not a new topic."
+        }
+      },
+      {
+        q: "Someone shared a PR in a thread asking for review. You reply: \"left a few comments, mostly nits.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. The PR author is in the thread. They'll see it. Nobody else needs to.",
+          also: "Random teammates now get pinged about your code review nits. That's exactly the kind of noise that trains people to mute the channel.",
+          new: "PR review feedback isn't a new topic — it's the topic the thread was opened for."
+        }
+      },
+      {
+        q: "In a design crit thread, you reply: \"agree on the spacing — the second variant feels right.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Design crit lives in the thread. The reviewer and designer see it; the channel doesn't need to.",
+          also: "Now everyone gets a half-context opinion about \"the second variant\" with no idea what that means.",
+          new: "It's a reaction inside an active critique, not its own message."
+        }
+      },
+      {
+        q: "Replying to a teammate's question in a thread: \"yep, you'll want to bump the version in package.json too.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. One-on-one help inside a thread — the asker sees it, nobody else needs to.",
+          also: "The channel reads cryptic technical advice with no original question for context.",
+          new: "This is an answer to a thread question, not its own message."
+        }
+      },
+      {
+        q: "In a thread about an outage that's now resolved, you reply: \"thanks for the quick fix everyone, going back to lunch 🥪\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Thanks-and-vibes inside a thread. Don't echo it to the channel.",
+          also: "The channel does not need a sandwich emoji broadcast back. The resolution message (separate, terse) is what they care about.",
+          new: "It's a chatty closer to a thread, not its own news."
+        }
+      },
+      {
+        q: "In a thread about a hiring round, you reply to the panel: \"I'd lean candidate B — stronger systems thinking.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Interview debrief is sensitive and scoped to the hiring panel. Keep it in the thread.",
+          also: "You just broadcast an interview opinion to the entire channel. Worst case: candidates or non-panel teammates see this.",
+          new: "It's panel feedback inside the panel's thread, not channel-wide info."
+        }
+      },
+      {
+        q: "In a long thread brainstorming product names, you reply: \"+1 to 'Mistwalker', it's evocative.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Brainstorm votes belong in the brainstorm thread.",
+          also: "The channel didn't ask to see your vote on a name candidate from a thread they aren't following.",
+          new: "A vote inside an existing brainstorm isn't a new message — it's a contribution to one."
+        }
+      },
+      {
+        q: "On a Friday end-of-week thread where everyone posts updates, you reply: \"shipping the dashboard refactor next week, otherwise quiet.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. The whole point of a consolidated status thread is one notification, not N.",
+          also: "Then every person's update gets blasted to the channel individually, defeating the point of the thread.",
+          new: "Your weekly update is one entry in a recurring thread, not a separate announcement."
+        }
+      },
+      {
+        q: "Replying in a thread asking when you can pair tomorrow: \"I'm open 10–11 and 2–3, whatever works.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Scheduling-of-one between two people. The asker sees it; nobody else cares.",
+          also: "The channel doesn't need to see your calendar availability.",
+          new: "It's a calendar reply, not a topic for the channel."
+        }
+      },
+      {
+        q: "In a #design thread about an icon set, you reply: \"sending you the source file in DM\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Note in thread for context, action happens in DM. No broadcast needed.",
+          also: "Everyone gets pinged to read \"sending in DM\" — a notification about a notification.",
+          new: "It's a meta note inside the thread, not its own message."
+        }
+      },
+      {
+        q: "Inside a thread debating two architectures, you reply: \"counterpoint — option A has a worse failure mode under load.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. The debate is happening in the thread. Add to it there.",
+          also: "Half the channel sees \"counterpoint\" with no idea what was being argued.",
+          new: "Your counterpoint extends the existing debate; it doesn't replace it."
+        }
+      },
+      {
+        q: "Inside a thread on a postmortem doc, you reply: \"left a comment on the timeline section.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Doc-feedback meta inside the doc's thread. The author sees it; that's enough.",
+          also: "Random teammates get pinged about a comment in a doc they aren't reviewing.",
+          new: "\"Comment left\" notifications aren't standalone announcements."
+        }
+      },
+      {
+        q: "On a thread tracking a flaky test, you reply: \"saw it fail again on my branch just now.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. A data point for the people investigating. The channel doesn't need every flake reported.",
+          also: "Flake-report broadcasts dilute attention — the channel will tune out the actual incidents.",
+          new: "Adding a data point to an investigation thread isn't a new topic."
+        }
+      },
+      {
+        q: "Replying in a thread about a customer demo: \"deck's in /demos/q3-customer, slide 12 is the one to lead with.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Specific advice for the demoer inside the demo's thread.",
+          also: "The channel doesn't need to follow demo prep at this level of detail.",
+          new: "Logistics for one person's demo isn't channel-level news."
+        }
+      },
+      {
+        q: "Asking inside a thread: \"@taylor what stack are you using for the new ingest worker?\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Direct question to one person, scoped to the existing thread context.",
+          also: "The channel doesn't need to see a one-on-one technical question echoed back.",
+          new: "It's a follow-up question, not its own message."
+        }
+      },
+      {
+        q: "In an active incident thread, you reply: \"I'll page the database team.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Coordination beat inside the incident thread — the responders need it; the channel doesn't.",
+          also: "During incidents the channel is already noisy. Broadcasting every coordination beat makes it worse.",
+          new: "Mid-incident coordination is part of the incident thread, not a new topic."
+        }
+      },
+      {
+        q: "On a Q4 planning thread, you reply: \"I can own the analytics workstream if no one else has it.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Volunteering inside the planning thread that's working out ownership.",
+          also: "The channel doesn't need to see every workstream get claimed individually — the final plan will summarize it.",
+          new: "You're contributing to the existing planning thread, not announcing something new."
+        }
+      },
+      {
+        q: "On a thread sharing weekend project ideas, you reply: \"that mech keyboard build looks sick, post photos when it's done\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Social chitchat inside the social thread. That's the whole point of threading.",
+          also: "Hard no — the channel does not need a mech keyboard hype broadcast.",
+          new: "Side chatter isn't its own announcement."
+        }
+      },
+      {
+        q: "Replying inside a #recruiting thread: \"the candidate just confirmed for Thursday at 2pm.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Scheduling update for the panel in the panel's thread.",
+          also: "Channel-wide scheduling pings are noise for everyone not on the panel.",
+          new: "A logistics update in an existing thread isn't its own news."
+        }
+      },
+      {
+        q: "On a thread walking a new hire through a setup issue, you reply: \"yeah, that's expected — homebrew puts it in /opt/homebrew on Apple Silicon.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Onboarding help for one person inside the onboarding thread.",
+          also: "Now you've pinged the channel with a one-on-one setup tip. They didn't ask.",
+          new: "It's an answer in an existing help thread, not its own message."
+        }
+      },
+      {
+        q: "In a thread where a manager asked for everyone's vacation plans, you reply: \"out July 8–15.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. One person's data point in a collection thread. The consolidated view is the value.",
+          also: "Then every individual vacation plan gets broadcast back, which is exactly what the threaded collection was avoiding.",
+          new: "Your reply is one entry in a survey thread, not its own announcement."
+        }
+      },
+      {
+        q: "In a thread reviewing a marketing email draft, you reply: \"copy looks good — would tighten the CTA wording.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Targeted feedback for the author inside the review thread.",
+          also: "The channel doesn't need every line of copy review echoed at them.",
+          new: "Editing feedback in a review thread isn't a new topic."
+        }
+      },
+      {
+        q: "On a thread about a customer escalation, you reply: \"I'll get on a call with them at 4pm.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. The escalation handlers need to know; the channel doesn't need a play-by-play.",
+          also: "The channel will hear the outcome (in a separate message) — they don't need every coordination beat.",
+          new: "Coordination beat inside an active escalation thread."
+        }
+      },
+      {
+        q: "Replying in a research thread: \"this paper from 2019 covers basically the same approach: arxiv.org/...\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Useful prior-art reference for the people in the discussion.",
+          also: "Pinging the whole channel for a paper link inside a research thread is exactly the noise to avoid.",
+          new: "It's a contribution to the research discussion, not its own message."
+        }
+      },
+      {
+        q: "On a thread about a UX bug, you reply: \"can repro on Safari but not Firefox — adding to the ticket.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. A useful data point for the people debugging. Channel doesn't need it.",
+          also: "Bug-repro broadcasts dilute attention. Save the channel for the fix-shipped message.",
+          new: "A debug data point in the bug's thread isn't standalone news."
+        }
+      },
+      {
+        q: "Inside a thread negotiating a vendor contract, you reply: \"I'd push back on the auto-renewal clause.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Sensitive negotiation feedback for the people on the deal. Not for the channel.",
+          also: "You just broadcast a deal-strategy note. Beyond noisy, it can be inappropriate.",
+          new: "Negotiation feedback isn't its own message — it's input to the thread."
+        }
+      },
+      {
+        q: "In a long alignment thread between two teams, you reply: \"summary of where we landed: X owns the API, Y owns the schema, sync in two weeks.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. The summary belongs in the thread with the context that produced it. The thread participants are who needs it.",
+          also: "Channel gets a summary without context. If you want broader visibility, write a separate top-level post — but don't echo a thread back.",
+          new: "Could work as a separate announcement, but that's a heavier message. For a thread-internal summary, thread-only is enough."
+        }
+      },
+      {
+        q: "On a thread tracking a 1:1 doc you share with your manager: \"updated the goals section, take a look when you have a minute.\"",
+        correct: "thread",
+        why: {
+          thread: "Right. Two-person workflow. Nobody else needs to see this.",
+          also: "If you also-send a 1:1 update to the channel, you've broadcast something deeply personal.",
+          new: "Not a new topic — it's a private follow-up."
+        }
+      },
+
+      // ─── also: the thread's outcome is genuinely worth surfacing ───
+      {
+        q: "In an incident thread that just resolved, you reply: \"All clear — we rolled back deploy 4f7a2, services stable. Postmortem to follow.\"",
+        correct: "also",
+        why: {
+          also: "Right. The channel was watching this incident; they need the resolution. This is the canonical legit case for also-send.",
+          thread: "The people who've been refreshing for an hour deserve the all-clear. Don't make them dig into the thread for it.",
+          new: "A standalone message would work too, but also-send keeps the resolution tied to the incident thread for searchability."
+        }
+      },
+      {
+        q: "After a thread debating a release decision, you reply: \"Decision: shipping v3.2 on Tuesday with the migration flag off by default. Thanks all.\"",
+        correct: "also",
+        why: {
+          also: "Right. A real decision affecting everyone in the channel, with a date. Surfacing it back is legitimate.",
+          thread: "Only thread participants will see the decision; the people who'll act on it (everyone shipping Tuesday) won't. Surface it.",
+          new: "Defensible, but tying the decision to the thread that produced it (via also-send) helps people audit the reasoning later."
+        }
+      },
+      {
+        q: "In a thread that started about one customer's bug, you discover it's affecting all users. You reply: \"This is actually broken for everyone since deploy 9b1c. Investigating now.\"",
+        correct: "also",
+        why: {
+          also: "Right. The scope just expanded from one customer to the whole channel's concern. Surface it.",
+          thread: "Keeping a now-channel-wide regression buried in a customer-specific thread means everyone else finds out late.",
+          new: "Also reasonable — a fresh \"P0: regression in production\" message would work. Either way, don't leave it in the thread."
+        }
+      },
+      {
+        q: "After a long thread settling on a coding style change, you reply: \"Final decision — going with trailing-commas. PR with the lint config in /infra/eslint coming today.\"",
+        correct: "also",
+        why: {
+          also: "Right. Decision + action item that touches everyone's PRs. Worth pulling out of the thread.",
+          thread: "Half the team won't read the thread, will get failing lints next week, and won't know why.",
+          new: "Defensible, but also-send keeps the decision linked to the reasoning thread, which helps future questions."
+        }
+      },
+      {
+        q: "After a 30-message thread asking legal, you reply: \"Confirmed with legal: we can ship the feature in the EU starting Aug 1.\"",
+        correct: "also",
+        why: {
+          also: "Right. The final answer to a question the whole channel has been waiting on. Surface it.",
+          thread: "Then the answer everyone needs is buried in a thread most won't open.",
+          new: "Also fine, but also-send ties the answer to the thread of back-and-forth that produced it."
+        }
+      },
+      {
+        q: "In a thread where the team has been picking a name for a new project, you reply: \"We're going with 'Atlas'. I'll set up the channel and repo today.\"",
+        correct: "also",
+        why: {
+          also: "Right. End of a naming process the channel was tracking. The conclusion is broadcast-worthy.",
+          thread: "Then half the team doesn't know what to call the project they're working on.",
+          new: "Defensible, but the thread is the journey and the also-send is the destination — keeping them linked is helpful."
+        }
+      },
+
+      // ─── new: the urge to also-send means you've actually got a new topic ───
+      {
+        q: "Mid-thread debugging a deploy, you realize you want to propose changes to the broader release process. You start typing a long reply.",
+        correct: "new",
+        why: {
+          new: "Right. \"Let's revisit our release process\" isn't a thread reply — it deserves its own top-level message with proper context.",
+          thread: "Buried in the deploy thread, your proposal gets ignored. Promote it to a standalone message.",
+          also: "Echoing a thread reply with a meeting proposal in it is the worst of both worlds — easy to miss, looks like an aside."
+        }
+      },
+      {
+        q: "In a thread about a small bug, you've concluded the real fix is to rewrite the whole module. You're about to reply with the pitch.",
+        correct: "new",
+        why: {
+          new: "Right. A rewrite proposal is not a thread aside. Give it its own message with a clear pitch.",
+          thread: "A rewrite buried in a small-bug thread gets zero serious consideration. Give it its own moment.",
+          also: "Echoing a rewrite proposal back as a thread reply makes it easier to dismiss, not easier to engage with."
+        }
+      },
+      {
+        q: "Replying in a thread, you've drafted a message that's actually a poll: \"who'd come to a Friday afternoon coffee chat?\"",
+        correct: "new",
+        why: {
+          new: "Right. Polls need first-class visibility — emoji reactions on a thread reply won't get a representative response.",
+          thread: "Only people already in the thread will see it. Polls need their own message.",
+          also: "Also-sending a poll-as-reply still surfaces it as a reply, which kills emoji-reaction-vote behavior."
+        }
+      },
+      {
+        q: "Mid-thread, you realize the topic has drifted. Your reply is on the new topic and doesn't really belong in this thread.",
+        correct: "new",
+        why: {
+          new: "Right. New topic = new message. The honest move.",
+          thread: "Continuing the drift confuses the thread for everyone — future readers won't find either topic cleanly.",
+          also: "Echoing your topic-shift back doubles the confusion: now both the channel and thread have mixed contexts."
+        }
+      },
+      {
+        q: "In a thread about a release, you've just realized you need to announce a hiring freeze that came up in a separate meeting.",
+        correct: "new",
+        why: {
+          new: "Right. The hiring freeze is unrelated to the release thread and deserves its own announcement.",
+          thread: "Buried under release chatter, an important announcement is invisible.",
+          also: "Cramming a hiring-freeze announcement into a release thread reply (then also-sending it) is messy and hard to find later."
+        }
+      },
+      {
+        q: "You're about to reply in a thread with a long retro on what went wrong with the project the thread is about.",
+        correct: "new",
+        why: {
+          new: "Right. A retro deserves its own thread so it can grow its own discussion — don't bolt it onto the thread it's reflecting on.",
+          thread: "A retro buried at the end of the project thread won't get the discussion it deserves.",
+          also: "Also-sending a retro-as-reply makes it look like a side note, not the substantive reflection it is."
+        }
+      }
+    ];
+
+    const quizEl = document.getElementById("quiz");
+    const progressEl = document.getElementById("progress");
+    const progressFill = document.getElementById("progress-fill");
+
+    let order = [];
+    let idx = 0;
+    let correct = 0;
+    let byCorrect = { also: 0, thread: 0, new: 0 };
+
+    function shuffle(a) {
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function startQuiz() {
+      order = shuffle([...Array(SCENARIOS.length).keys()]);
+      idx = 0;
+      correct = 0;
+      byCorrect = { also: 0, thread: 0, new: 0 };
+      renderQuestion();
+    }
+
+    function updateProgress() {
+      const total = SCENARIOS.length;
+      progressEl.textContent = `Question ${idx + 1} of ${total} · ${correct} correct so far`;
+      progressFill.style.width = `${(idx / total) * 100}%`;
+    }
+
+    function renderQuestion() {
+      updateProgress();
+      const s = SCENARIOS[order[idx]];
+      const card = document.createElement("div");
+      card.className = "scenario";
+      const nextLabel = idx === SCENARIOS.length - 1 ? "See results →" : "Next →";
+      card.innerHTML = `
+        <p class="q">${escapeHtml(s.q)}</p>
+        <div class="choices">
+          <button data-choice="also">✓ Also send to #channel</button>
+          <button data-choice="thread">Reply in thread only</button>
+          <button data-choice="new">Start a new top-level message</button>
+        </div>
+        <div class="feedback"></div>
+        <div class="nav" style="display:none"><button id="next-btn">${nextLabel}</button></div>
+      `;
+      const buttons = card.querySelectorAll(".choices button");
+      const feedback = card.querySelector(".feedback");
+      const nav = card.querySelector(".nav");
+
+      buttons.forEach(btn => {
+        btn.addEventListener("click", () => {
+          const choice = btn.dataset.choice;
+          const isRight = choice === s.correct;
+
+          buttons.forEach(b => b.disabled = true);
+
+          if (isRight) {
+            btn.classList.add("correct");
+            correct++;
+            byCorrect[s.correct]++;
+          } else {
+            btn.classList.add("wrong");
+            const rightBtn = card.querySelector(`button[data-choice="${s.correct}"]`);
+            rightBtn.classList.add("also-correct");
+          }
+
+          feedback.classList.add("show", isRight ? "right" : "wrong");
+          feedback.innerHTML = `<span class="verdict">${isRight ? "✓ Correct." : "✗ Not quite."}</span>${s.why[choice]}`;
+          nav.style.display = "flex";
+          updateProgress();
+        });
+      });
+
+      card.querySelector("#next-btn").addEventListener("click", () => {
+        idx++;
+        if (idx >= SCENARIOS.length) {
+          renderSummary();
+        } else {
+          renderQuestion();
+          window.scrollTo({ top: document.querySelector(".quiz-header").offsetTop - 20, behavior: "smooth" });
+        }
+      });
+
+      quizEl.replaceChildren(card);
+    }
+
+    function renderSummary() {
+      progressEl.textContent = `Done · ${correct} of ${SCENARIOS.length}`;
+      progressFill.style.width = "100%";
+      const card = document.createElement("div");
+      card.className = "summary";
+      const pct = Math.round((correct / SCENARIOS.length) * 100);
+      card.innerHTML = `
+        <h3>${pct}%</h3>
+        <p class="final-score">You got <strong>${correct}</strong> of ${SCENARIOS.length} right.</p>
+        <p class="breakdown">Correct on thread-only: ${byCorrect.thread} · also-send: ${byCorrect.also} · new message: ${byCorrect.new}</p>
+        <button id="restart-btn">Restart quiz</button>
+      `;
+      card.querySelector("#restart-btn").addEventListener("click", () => {
+        startQuiz();
+        window.scrollTo({ top: document.querySelector(".quiz-header").offsetTop - 20, behavior: "smooth" });
+      });
+      quizEl.replaceChildren(card);
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[c]);
+    }
+
+    startQuiz();
+  </script>
+</body>
+</html>
