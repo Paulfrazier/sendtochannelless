@@ -1,5 +1,15 @@
 # Build Log — sendtochannelless
 
+## 2026-05-25 — Re-skin to "Playful Arcade" design system
+
+**Prompt:** "Looks great, push" — rolling out the new Fairpoint design system.
+
+**Problem:** Clean but generic design; quiz engine was duplicated per-site code.
+
+**Solution:** Converted to the `fairpoint-kit` data-driven template. Content moved to `spec.json` (40 scenarios, choices `also`/`thread`/`new`), rendered into `index.html`'s `#site-config` block via `fairpoint-kit/render.py`. New look: Space Grotesk, neobrutalist cards, scoring HUD with 🔥combo + segmented progress, +points popups, count-up summary with a grade, dependency-free confetti at ≥70%. Scenarios and correctness unchanged. This spec is also the kit's regression fixture (`fairpoint-kit/examples/send-to-channel-less.json`).
+
+**Changed files:** `index.html` (regenerated from template), `spec.json` (new)
+
 ## 2026-05-21 — Initial scaffold
 
 **Prompt:** "go" — Paul greenlit scaffolding the second Fairpoint site after deciding on the name `sendtochannelless`. Single decision turn after a multi-turn naming workshop in the chat.
